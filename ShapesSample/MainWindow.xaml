@@ -1,0 +1,771 @@
+﻿<Window x:Class="ShapesSample.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="clr-namespace:ShapesSample"
+    xmlns:NetworkModel="clr-namespace:ShapesNetworkModel;assembly=ShapesNetworkModel"
+    xmlns:NetworkUI="clr-namespace:NetworkUI;assembly=NetworkUI"
+    xmlns:diagnostics="clr-namespace:System.Diagnostics;assembly=WindowsBase"
+    xmlns:valueConverters="clr-namespace:ShapesSample.ValueConverters"
+    xmlns:ac="clr-namespace:AdornedControl;assembly=AdornedControl"
+    xmlns:controls ="clr-namespace:ShapesSample.Controls"
+    Title="Main Window" 
+    x:Name="mainWindow"
+	Width="800"
+    Height="500"
+	Loaded="MainWindow_Loaded"
+    FocusManager.FocusedElement="{Binding ElementName=networkControl}">
+    
+    <!-- 
+    Including this in binding statements for diagnostics:
+    diagnostics:PresentationTraceSources.TraceLevel=High
+    -->
+
+    <Window.Resources>
+
+        <ResourceDictionary>
+            
+            <SolidColorBrush
+                x:Key="selectionBorderColor"
+                Color="Blue"/>
+
+            <SolidColorBrush
+                x:Key="selectionBorderBackgroundColor"
+                Color="Blue"
+                Opacity="0.25"/>
+        
+            <!-- UI commands. -->
+            <RoutedUICommand x:Key="Commands.DeleteSelectedNodes" />
+            <RoutedUICommand x:Key="Commands.CreateNode" />
+            <RoutedUICommand x:Key="Commands.BeginConnectionDrag" />
+            <RoutedUICommand x:Key="Commands.EndConnectionDrag" />
+
+            <RoutedUICommand x:Key="Commands.DeleteNode"/>
+            <RoutedUICommand x:Key="Commands.DeleteConnection"/>
+        
+            <RoutedUICommand x:Key="Commands.BeginNodeConnectionDrag"/>
+
+        
+            <!-- Style for thumb anchors -->
+            <Style TargetType="{x:Type Thumb}" x:Key="ThumbStyle">
+                <Setter Property="Width" Value="10"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter Property="Margin" Value="-5"/>
+            </Style>
+        
+            <!-- 
+                Template for the button that is used to delete nodes and connections in the graph.
+                This button is displayed in an adorner when the user hovers the mouse over a node or connection.
+                -->
+            <ControlTemplate x:Key="beginConnectionDragButtonTemplate" 
+                            TargetType="{x:Type ContentControl}">
+            
+                <Grid x:Name="grid">
+                    <Grid.RenderTransform>
+                        <ScaleTransform
+                                ScaleX="1"
+                                ScaleY="1"
+                                CenterX="10"
+                                CenterY="10"
+                                />
+                    </Grid.RenderTransform>
+                
+                    <Ellipse
+                            x:Name="shadow"
+                            VerticalAlignment="Stretch"
+                            HorizontalAlignment="Stretch"
+                            Fill="Gray"
+                            >
+                        <Ellipse.RenderTransform>
+                            <TranslateTransform
+                                    X="1.5"
+                                    Y="1.5"
+                                    />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                
+                    <Ellipse
+                            x:Name="ellipse"
+                            Stroke="Black"
+                            VerticalAlignment="Stretch"
+                            HorizontalAlignment="Stretch"
+                            Fill="White"/>
+                
+                    <Image
+                            Source="Resources\Link.png" 
+                            Margin="2"/>
+                </Grid>
+            
+                <ControlTemplate.Triggers>
+                    <EventTrigger RoutedEvent="Mouse.MouseEnter" >
+                        <!-- 
+                            Make the 'delete connection button' larger when the mouse 
+                            cursor is hovered over it.
+                            -->
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation
+                                        Storyboard.TargetName="grid"
+                                        Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                        To="1.3"
+                                        Duration="0:0:0.25"
+                                        />
+                                <DoubleAnimation
+                                        Storyboard.TargetName="grid"
+                                        Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                        To="1.3"
+                                        Duration="0:0:0.25"
+                                        />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+
+                    <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                        <!-- 
+                            Return the 'delete connection button' to normal size when the mouse
+                            cursor is moved away.
+                            -->
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation
+                                        Storyboard.TargetName="grid"
+                                        Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                        To="1"
+                                        Duration="0:0:0.05"
+                                        />
+                                <DoubleAnimation
+                                        Storyboard.TargetName="grid"
+                                        Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                        To="1"
+                                        Duration="0:0:0.05"
+                                        />
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </EventTrigger>
+                </ControlTemplate.Triggers>
+
+            </ControlTemplate>
+
+            <!-- 
+                Template for the button that is used to delete nodes and connections in the graph.
+                This button is displayed in an adorner when the user hovers the mouse over a node or connection.
+                -->                                                                                                                                                                                                                                                                                                                       
+            <ControlTemplate x:Key="deleteButtonTemplate"
+                             TargetType="{x:Type Button}">
+                
+                <Grid x:Name="grid">
+                    <Grid.RenderTransform>
+                        <ScaleTransform
+                            ScaleX="1"
+                            ScaleY="1"
+                            CenterX="10"
+                            CenterY="10"
+                            />
+                    </Grid.RenderTransform>
+                    <Ellipse
+                        x:Name="shadow"
+                        VerticalAlignment="Stretch"
+                        HorizontalAlignment="Stretch"
+                        Fill="Gray"
+                        >
+                        <Ellipse.RenderTransform>
+                            <TranslateTransform
+                                X="1.5"
+                                Y="1.5"
+                                />
+                        </Ellipse.RenderTransform>
+                    </Ellipse>
+                    <Ellipse
+                        x:Name="ellipse"
+                        Stroke="Black"
+                        VerticalAlignment="Stretch"
+                        HorizontalAlignment="Stretch"
+                        Fill="White"/>
+                    <Image
+                        Source="Resources\scissors.png" 
+                        Margin="2"/>
+                </Grid>
+                
+                <ControlTemplate.Triggers>
+                <EventTrigger RoutedEvent="Mouse.MouseEnter" >
+                    <!-- 
+                        Make the 'delete connection button' larger when the mouse 
+                        cursor is hovered over it.
+                        -->
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                    Storyboard.TargetName="grid"
+                                    Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                    To="1.3"
+                                    Duration="0:0:0.25"
+                                    />
+                            <DoubleAnimation
+                                    Storyboard.TargetName="grid"
+                                    Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                    To="1.3"
+                                    Duration="0:0:0.25"
+                                    />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+
+                <EventTrigger RoutedEvent="Mouse.MouseLeave">
+                    <!-- 
+                        Return the 'delete connection button' to normal size when the mouse
+                        cursor is moved away.
+                        -->
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation
+                                    Storyboard.TargetName="grid"
+                                    Storyboard.TargetProperty="RenderTransform.ScaleX"
+                                    To="1"
+                                    Duration="0:0:0.05"
+                                    />
+                            <DoubleAnimation
+                                    Storyboard.TargetName="grid"
+                                    Storyboard.TargetProperty="RenderTransform.ScaleY"
+                                    To="1"
+                                    Duration="0:0:0.05"
+                                    />
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </ControlTemplate.Triggers>
+
+            </ControlTemplate>
+
+
+            <!--
+            Define the visual style for a 'NodeItem'.
+        
+            Binds 'X' and 'Y' in the view-model (the 'NodeViewModel' class)
+            to 'X' and 'Y' in the NodeItem class.
+        
+            This sets the position of the node within the Canvas.
+            -->
+            <Style TargetType="{x:Type NetworkUI:NodeItem}">
+                <Setter Property="X" Value="{Binding X}" />
+                <Setter Property="Y" Value="{Binding Y}" />
+                <Setter Property="IsSelected" Value="{Binding IsSelected}" />
+                <Setter Property="Margin" Value="-2"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type NetworkUI:NodeItem}">
+                            <Grid>
+
+                                <!-- 
+                                This border indicates that node is selected.
+                                Normally it is transparent, but when 'IsSelected' is set
+                                to 'true' the border brush becomes blue and its background
+                                becomds light blue.
+                            -->
+
+                                <Rectangle x:Name="selectionBorder"
+                                RadiusX="5" 
+                                RadiusY="5"
+                                Fill="{TemplateBinding Background}" 
+                                Stroke="{TemplateBinding BorderBrush}" 
+                                StrokeThickness="{TemplateBinding BorderThickness}"
+                                Margin="{TemplateBinding Margin}"/>
+
+                                <!-- User-defined node content is presented here. -->
+                                <ContentPresenter />
+
+                                <!-- Link Anchor Connector -->
+                                <NetworkUI:ConnectorItem x:Name="PART_NewLinkConnector" 
+                                                     DataContext="{Binding LinkCreationConnection}"
+                                                     Visibility="Hidden">
+                                    <NetworkUI:ConnectorItem.RenderTransform>
+                                        <TranslateTransform 
+                                                    X="{Binding XConnectionPoint}" 
+                                                    Y="{Binding YConnectionPoint}"/>
+                                    </NetworkUI:ConnectorItem.RenderTransform>
+                                </NetworkUI:ConnectorItem>
+
+                            </Grid>
+
+                            <ControlTemplate.Triggers>
+
+                                <Trigger 
+                            Property="IsSelected"
+                            Value="True">
+
+                                    <!-- When the node is selected, set the color of 'selectionBorder' to blue. -->
+                                    <Setter
+                                TargetName="selectionBorder"
+                                Property="Stroke"
+                                Value="{StaticResource selectionBorderColor}"/>
+
+                                </Trigger>
+
+                                <Trigger 
+                            Property="IsSelected"
+                            Value="True">
+
+                                    <!-- When the node is selected, set the background of 'selectionBorder' to light blue. -->
+                                    <Setter
+                                TargetName="selectionBorder"
+                                Property="Fill"
+                                Value="{StaticResource selectionBorderBackgroundColor}"/>
+
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+
+            <!-- Define a data-template for the 'EllipseNodeViewModel' class.
+            This generates the UI for each node. -->
+            <DataTemplate DataType="{x:Type NetworkModel:EllipseNodeViewModel}">
+                <ac:AdornedControl
+                    HorizontalAdornerPlacement="Inside"
+                    VerticalAdornerPlacement="Inside"
+                    AdornerOffsetX="10"
+                    AdornerOffsetY="-10"
+                    FadeInTime="0.25"
+                    FadeOutTime="0.25"
+                    CloseAdornerTimeOut="0.5"
+                    IsMouseOverShowEnabled="{Binding ElementName=networkControl, Path=IsNotDragging}">
+
+                    <Grid Width="{Binding Width}" Height="{Binding Height}">
+
+                        <!-- This rectangle is the main visual for the node. -->
+                        <Ellipse Stroke="Black" Fill="White"/>
+
+                        <!-- 
+                    This grid contains the node's name and connectors.
+                    The margin is negative so that the connectors overlap the body of the node and it's selection border.
+                    -->
+                        <Grid Margin="-3">
+
+                            <!-- The name of the node. -->
+                            <TextBlock
+                            Text="{Binding Name}"
+                            MaxWidth="40"
+                            TextWrapping="Wrap"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"/>
+
+                            <!-- Existing Connectors -->
+                            <ItemsControl ItemsSource="{Binding Connectors}">
+
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <NetworkUI:ConnectorItem>
+                                            <NetworkUI:ConnectorItem.RenderTransform>
+                                                <TranslateTransform 
+                                                X="{Binding XConnectionPoint}" 
+                                                Y="{Binding YConnectionPoint}"/>
+                                            </NetworkUI:ConnectorItem.RenderTransform>
+                                        </NetworkUI:ConnectorItem>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Grid/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+
+                            </ItemsControl>
+
+                        </Grid>
+                    </Grid>
+
+                    <ac:AdornedControl.AdornerContent>
+
+                        <!-- This is the adorner that pops up when the user hovers the mouse over the node.
+                         It displays a button that the user can click to delete the node.-->
+                        <Grid>
+
+                            <!-- Resize Outline -->
+                            <Rectangle 
+                                Stroke="Gray" 
+                                StrokeThickness="1" 
+                                StrokeDashArray="4,2"/>
+
+                            <!-- Resize Handles -->
+                            <controls:ResizeThumb HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Center" VerticalAlignment="Top" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+
+                            <controls:ResizeThumb HorizontalAlignment="Left" VerticalAlignment="Center" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+
+                            <controls:ResizeThumb HorizontalAlignment="Left" VerticalAlignment="Bottom" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Center" VerticalAlignment="Bottom" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Right" VerticalAlignment="Bottom" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+
+                            <!-- Buttons Panel -->
+                            <StackPanel
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,-25,0,0">
+
+                                <Button
+                                    x:Name="deleteNodeButton"
+                                    Width="20"
+                                    Height="20"
+                                    Cursor="Hand"
+                                    Focusable="False"
+                                    Command="{StaticResource Commands.DeleteNode}"
+                                    CommandParameter="{Binding}"
+                                    Template="{StaticResource deleteButtonTemplate}" Margin="0,0,5,0">
+                                </Button>
+
+                                <ContentControl
+                                    x:Name="beginConnectionDragButton"
+                                    Width="20"
+                                    Height="20"
+                                    Cursor="Hand"
+                                    Focusable="False"
+                                    Template="{StaticResource beginConnectionDragButtonTemplate}"
+                                    MouseDown="beginConnectionDragButton_MouseDown"/>
+
+                            </StackPanel>
+                        </Grid>
+
+                    </ac:AdornedControl.AdornerContent>
+
+                </ac:AdornedControl>
+            </DataTemplate>
+
+            <!-- Define a data-template for the 'PathNodeViewModel' class. This generates the UI for each node.-->
+            <DataTemplate DataType="{x:Type NetworkModel:PathNodeViewModel}">
+                <ac:AdornedControl
+                    HorizontalAdornerPlacement="Inside"
+                    VerticalAdornerPlacement="Inside"
+                    AdornerOffsetX="10"
+                    AdornerOffsetY="-10"
+                    FadeInTime="0.25"
+                    FadeOutTime="0.25"
+                    CloseAdornerTimeOut="0.5"
+                    IsMouseOverShowEnabled="{Binding ElementName=networkControl, Path=IsNotDragging}">
+
+                    <Grid Width="{Binding Width}" Height="{Binding Height}">
+
+                        <!-- This shape is the main visual for the node. -->
+                        <Path 
+                        Data="{Binding Path, Converter={x:Static valueConverters:PointsToPathConverter.Instance}}" Stroke="Black" StrokeThickness="1"
+                        Fill="White"/>
+
+                        <!-- 
+                    This grid contains the node's name and connectors.
+                    The margin is negative so that the connectors overlap the body of the node and it's selection border.
+                    -->
+                        <Grid Margin="-3">
+
+                            <!-- The name of the node. -->
+                            <TextBlock
+                            Text="{Binding Name}"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center"/>
+
+                            <!-- Existing Connectors -->
+                            <ItemsControl ItemsSource="{Binding Connectors}">
+
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <NetworkUI:ConnectorItem>
+                                            <NetworkUI:ConnectorItem.RenderTransform>
+                                                <TranslateTransform 
+                                                X="{Binding XConnectionPoint}" 
+                                                Y="{Binding YConnectionPoint}"/>
+                                            </NetworkUI:ConnectorItem.RenderTransform>
+                                        </NetworkUI:ConnectorItem>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <Grid/>
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+
+                            </ItemsControl>
+
+                        </Grid>
+                    </Grid>
+
+                    <ac:AdornedControl.AdornerContent>
+
+                        <!-- This is the adorner that pops up when the user hovers the mouse over the node.
+                         It displays a button that the user can click to delete the node.-->
+                        <Grid>
+
+                            <!-- Resize Outline -->
+                            <Rectangle 
+                                Stroke="Gray" 
+                                StrokeThickness="1" 
+                                StrokeDashArray="4,2"/>
+
+                            <!-- Resize Handles -->
+                            <controls:ResizeThumb HorizontalAlignment="Left" VerticalAlignment="Top" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Center" VerticalAlignment="Top" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Right" VerticalAlignment="Top" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+
+                            <controls:ResizeThumb HorizontalAlignment="Left" VerticalAlignment="Center" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Right" VerticalAlignment="Center" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+
+                            <controls:ResizeThumb HorizontalAlignment="Left" VerticalAlignment="Bottom" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Center" VerticalAlignment="Bottom" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+                            <controls:ResizeThumb HorizontalAlignment="Right" VerticalAlignment="Bottom" Style="{StaticResource ResourceKey=ThumbStyle}"/>
+
+                            <!-- Buttons Panel -->
+                            <StackPanel
+                            Orientation="Horizontal"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Top"
+                            Margin="0,-25,0,0">
+
+                                <Button
+                                    x:Name="deleteConnectionButton"
+                                    Width="20"
+                                    Height="20"
+                                    Cursor="Hand"
+                                    Focusable="False"
+                                    Command="{StaticResource Commands.DeleteNode}"
+                                    CommandParameter="{Binding}"
+                                    Template="{StaticResource deleteButtonTemplate}" Margin="0,0,5,0" >
+                                </Button>
+
+                                <ContentControl
+                                    x:Name="beginConnectionDragButton"
+                                    Width="20"
+                                    Height="20"
+                                    Cursor="Hand"
+                                    Focusable="False"
+                                    Template="{StaticResource beginConnectionDragButtonTemplate}"
+                                    MouseDown="beginConnectionDragButton_MouseDown"/>
+
+                            </StackPanel>
+                        </Grid>
+
+                    </ac:AdornedControl.AdornerContent>
+
+
+                </ac:AdornedControl>
+            </DataTemplate>
+
+
+            <!-- 
+                Define the visual style for a 'ConnectorItem'.
+            -->
+            <Style TargetType="{x:Type NetworkUI:ConnectorItem}">
+                <!-- 
+                Data-binding for the connector hotspot.
+                ConnectorItem automatically computes its center 
+                points and assigns this value to the 'Hotspot' property.  
+                This data-binding in this style then 'pushes' the value into the 
+                application view-model.
+                -->
+                <Setter 
+                    Property="Hotspot"
+                    Value="{Binding Hotspot, Mode=OneWayToSource}"/>
+
+                <!-- The visual template. -->
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type NetworkUI:ConnectorItem}">
+                            <Ellipse
+                            Stroke="Black"
+                            Fill="White"
+                            Width="6"
+                            Height="6"/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+
+            </Style>
+
+            <!-- 
+            Data-template for ConectionViewModel.
+        
+            Note that the 'Start' and 'End' of the arrow are bound to 'SourceConnectorHotspot' and 'DestConnectorHotspot' in 
+            the view-model.
+
+            In this sample a straight arrow represents connections between nodes.
+            -->
+            <DataTemplate DataType="{x:Type NetworkModel:ConnectionViewModel}">
+
+                <!-- 
+                    An adorned control is used, to represent the connection. 
+                    When the user hovers the mouse cursor over the connection, the 
+                    'delete connection' adorner pops up and allows them to delete the connection.
+                    -->
+                <ac:AdornedControl
+                        HorizontalAdornerPlacement="Mouse"
+                        VerticalAdornerPlacement="Mouse"
+                        FadeInTime="0.25"
+                        FadeOutTime="0.25"
+                        CloseAdornerTimeOut="0.25"
+                        IsMouseOverShowEnabled="{Binding ElementName=networkControl, Path=IsNotDragging}">
+
+
+                    <!-- The connection is represented by a simple arrow. -->
+                    <Line
+                        Stroke="Black"
+                        StrokeThickness="2"
+                        Fill="Black"
+                        X1="{Binding SourceConnectorHotspot.X}"
+                        Y1="{Binding SourceConnectorHotspot.Y}"
+                        X2="{Binding DestConnectorHotspot.X}"
+                        Y2="{Binding DestConnectorHotspot.Y}"
+                        IsHitTestVisible="True"/>
+
+                    <ac:AdornedControl.AdornerContent>
+
+                        <!-- 
+                            This is the adorner that pops up when the user hovers the mouse over the connection.
+                            It displays a button that the user can click to delete the connection.
+                            -->
+                        <Canvas
+                                x:Name="connectionAdornerCanvas"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Top"
+                                Width="30"
+                                Height="30"
+                                >
+                            <Line
+                                    X1="0"
+                                    Y1="30"
+                                    X2="15"
+                                    Y2="15"
+                                    Stroke="Black"
+                                    StrokeThickness="1"
+                                    />
+                            <Button
+                                    x:Name="deleteConnectionButton"
+                                    Canvas.Left="10"
+                                    Canvas.Top="0"
+                                    Width="20"
+                                    Height="20"
+                                    Cursor="Hand"
+                                    Focusable="False"
+                                    Command="{StaticResource Commands.DeleteConnection}"
+                                    CommandParameter="{Binding}"
+                                    Template="{StaticResource deleteButtonTemplate}">
+                            </Button>
+                        </Canvas>
+                    </ac:AdornedControl.AdornerContent>
+                    
+                </ac:AdornedControl>
+                
+            </DataTemplate>
+
+        </ResourceDictionary>
+
+    </Window.Resources>
+    
+    <Window.InputBindings>
+        
+        <!-- Bind input to commands. -->
+        
+        <KeyBinding
+			Key="Del"
+			Command="{StaticResource Commands.DeleteSelectedNodes}"/>
+        
+    </Window.InputBindings>
+    
+    <Window.CommandBindings>
+
+        <!-- Bind commands to event handlers. -->
+        <CommandBinding 
+            Command="{StaticResource Commands.DeleteSelectedNodes}" 
+            Executed="DeleteSelectedNodes_Executed"/>
+        
+        <CommandBinding 
+            Command="{StaticResource Commands.CreateNode}" 
+            Executed="CreateNode_Executed"/>
+
+        <CommandBinding 
+            Command="{StaticResource Commands.DeleteNode}"
+            Executed="DeleteNode_Executed" />
+        
+        <CommandBinding 
+            Command="{StaticResource Commands.DeleteConnection}"
+            Executed="DeleteConnection_Executed"/>
+
+    </Window.CommandBindings>
+
+    <Window.ContextMenu>
+
+        <ContextMenu>
+
+            <!-- Create Different Nodes -->
+            <MenuItem
+                Header="Create Ellipse"
+                Command="{StaticResource Commands.CreateNode}"
+                CommandParameter="{x:Static NetworkModel:ShapeType.Ellipse}"
+                ToolTip="Creates a new Ellipse node."/>
+            
+            <MenuItem
+                Header="Create Square"
+                Command="{StaticResource Commands.CreateNode}"
+                CommandParameter="{x:Static NetworkModel:ShapeType.Square}"
+                ToolTip="Creates a new Square node."/>
+
+            <MenuItem
+                Header="Create Triangle"
+                Command="{StaticResource Commands.CreateNode}"
+                CommandParameter="{x:Static NetworkModel:ShapeType.Triangle}"
+                ToolTip="Creates a new Triangle node."/>
+
+            <MenuItem
+                Header="Create Diamond"
+                Command="{StaticResource Commands.CreateNode}"
+                CommandParameter="{x:Static NetworkModel:ShapeType.Diamond}"
+                ToolTip="Creates a new Diamond node."/>
+
+            <MenuItem
+                Header="Create Hexagon"
+                Command="{StaticResource Commands.CreateNode}"
+                CommandParameter="{x:Static NetworkModel:ShapeType.Hexagon}"
+                ToolTip="Creates a new Hexagon node."/>
+
+            <MenuItem
+                Header="Create Star"
+                Command="{StaticResource Commands.CreateNode}"
+                CommandParameter="{x:Static NetworkModel:ShapeType.Star}"
+                ToolTip="Creates a new Star node."/>
+
+        </ContextMenu>
+
+    </Window.ContextMenu>
+    
+    <Window.DataContext>
+        <local:MainWindowViewModel />  
+    </Window.DataContext>
+
+    <!-- 
+    The ScrollViewer displays scrollbars when the content is too big to fit in the viewport. 
+    Focusable is set to False because it is only that NetworkView that I want to be focusable.
+    -->
+    <ScrollViewer
+        HorizontalScrollBarVisibility="Auto"
+        Focusable="False">
+        
+        <AdornerDecorator>
+
+            <!-- The NetworkView is the content of the ScrollViewer. -->
+            <NetworkUI:NetworkView
+                    x:Name="networkControl"
+                    Width="2000"
+                    Height="2000"
+                
+                    NodesSource="{Binding Network.Nodes}"
+                    ConnectionsSource="{Binding Network.Connections}"
+                
+                    EnableConnectionDragging="False"
+                    EnableNodeConnectionDragging="True"
+      
+                    NodeConnectionCreated="networkControl_NodeConnectionCreated"
+                    NodeConnectionDragging="networkControl_NodeConnectionDragging"/>
+            
+        </AdornerDecorator>
+    </ScrollViewer>
+</Window>
