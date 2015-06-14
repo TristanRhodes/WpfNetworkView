@@ -4,4 +4,4 @@ This project is an extension to the original network view project by Ashley Davi
 This extension adds support for mixed shapes and shapes based off paths on the canvas. More information can be found in the original blog post: http://www.tristan-rhodes.co.uk/post/2014/01/26/NetworkView-Canvas-Extensions.aspx, published on 26th January 2014.
 
 #Screen Shot
-![Alt text](http://www.tristan-rhodes.co.uk/image.axd?picture=2014%2f1%2fShapes+Canvas+2.jpg)
+![Alt text](http://tristan-rhodes.co.uk/image.axd?picture=2014%2f1%2fShapes+Canvas+2.jpg)
